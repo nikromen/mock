@@ -231,6 +231,19 @@ class Mounts(object):
                                options="nodev,noexec,nosuid,readonly,rprivate"),
             ]
 
+        if rootObj.config.get('nspawn_host_dev') and util.USE_NSPAWN:
+            # Remount /dev as devtmpfs so dynamically-created device nodes (such as
+            # loop partition devices /dev/loop0p1) are visible inside the container.
+            # The remount masks submounts like /dev/pts and /dev/shm, so they must
+            # be restored explicitly afterwards.
+            self.essential_mounts.append(
+                FileSystemMountPoint(
+                    filetype='devtmpfs',
+                    device='devtmpfs',
+                    path=rootObj.make_chroot_path('/dev')
+                )
+            )
+
         if rootObj.config['internal_dev_setup']:
             self.essential_mounts.append(
                 FileSystemMountPoint(
@@ -319,7 +332,7 @@ class Mounts(object):
 
     @traceLog()
     def mountall_managed(self):
-        if not util.USE_NSPAWN:
+        if not util.USE_NSPAWN or self.rootObj.config.get('nspawn_host_dev'):
             self.mountall_essential()
         for m in self.managed_mounts:
             m.mount()
